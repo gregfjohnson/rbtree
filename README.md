@@ -22,6 +22,7 @@ These two properties together guarantee that no two leaf nodes will
 differ by more than a factor of two in depth.
 
 Usage:
+
     rbtree_t tree;
     rbtree_init(&tree, my_data_comparison_function);
 
