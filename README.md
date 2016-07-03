@@ -26,12 +26,14 @@ Usage:
     rbtree_t tree;
     rbtree_init(&tree, my_data_comparison_function);
 
-    rtbree_insert(&tree, &my_data);
-    rbtree_delete(&tree, &my_data);
+    my_data_t my_data = {...};
+    rbtree_insert(&tree, &my_data);
 
     my_data_t search, *found;
-    search.key = key
+    search.key = key;
     found = rbtree_find(&tree, &search);
+
+    found = rbtree_delete(&tree, &search);
 
     found = rbtree_first(&tree) 
 
@@ -39,6 +41,10 @@ Usage:
     while ((found = rbtree_iter_next(&iter)) != NULL) {
         ...
     }
+
+A common usage pattern is for the client to malloc() instances of their
+data type, populate them, and insert them into a red black tree.  Then,
+at clean-up time, delete each data value from the tree and free() it.
 
 Here are a few thoughts on the approach that guided this implementation.
 

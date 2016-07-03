@@ -23,6 +23,7 @@
  *     rbtree_t tree;
  *     rbtree_init(&tree, my_data_comparison_function);
  *
+ *     my_data_t my_data = {...};
  *     rbtree_insert(&tree, &my_data);
  *
  *     my_data_t search, *found;
@@ -37,10 +38,6 @@
  *     while ((found = rbtree_iter_next(&iter)) != NULL) {
  *         ...
  *     }
- *
- * Don't believe what they tell you in algorithms textbooks ;-).  The red-black
- * tree algorithms are hard to understand.  This implementation is intended to
- * be helpful in making the opaque magic easier to grok.
  */
 
 static rbtree_node_t *parent(rbtree_node_t *node) {
