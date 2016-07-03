@@ -64,7 +64,7 @@ We make use of a generalization of the usual notion of black height.
 In the standard definition, the black height of a node is only considered
 well defined if all simple paths from the node to leaf nodes have the
 same number of black nodes.  We prefer to define the black height of
-a node as the maximum number of black nodes in any simple path staring
+a node as the maximum number of black nodes in any simple path starting
 from the node and descending into its subtree.  With that definition,
 black height is well-defined for all nodes in all trees, even ones that
 violate the black property.
