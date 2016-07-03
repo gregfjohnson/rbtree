@@ -42,7 +42,7 @@ static void printTree(rbtree_node_t *subtree) {
     printTree(subtree->rchild);
 }
 
-static void test1() {
+static void test_Sorted() {
     byte data[] =       {3,1,4,1,5,9,2,6};
     byte sortedData[] = {1,1,2,3,4,5,6,9};
     rbtree_t tree;
@@ -69,7 +69,7 @@ static void test1() {
     }
 }
 
-static void test2() {
+static void test_DeleteTree() {
     byte data[] = {3,1,4,1,5,9,2,6};
     byte *datum;
     rbtree_t tree;
@@ -90,9 +90,33 @@ static void test2() {
     }
 }
 
+static void test_mallocAndFreeUserData() {
+    byte data[] = {3,1,4,1,5,9,2,6};
+    rbtree_t tree;
+    int i;
+
+    rbtree_init(&tree, (rbtree_cmp_t *) byte_cmp);
+
+    for (i = 0; i < sizeof(data); ++i) {
+        byte *datum = (byte *) malloc(sizeof(byte));
+        *datum = data[i];
+        rbtree_insert(&tree, datum);
+        test_result(countNodes(tree.root) == i + 1, "insert");
+    }
+
+    i = sizeof(data);
+
+    for (i = 0; i < sizeof(data); ++i) {
+        byte *heapAllocatedNode = rbtree_delete(&tree, &data[i]);
+        free(heapAllocatedNode);
+        test_result(countNodes(tree.root) == sizeof(data) - 1 - i, "delete");
+    }
+}
+
 int main(int argc, char **argv) {
-    test1();
-    test2();
+    test_Sorted();
+    test_DeleteTree();
+    test_mallocAndFreeUserData();
 
     return test_result_value;
 }

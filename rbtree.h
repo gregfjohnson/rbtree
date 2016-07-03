@@ -50,8 +50,8 @@ void rbtree_set_malloc_free(rbtree_t *tree, rbtree_malloc_t *malloc, rbtree_free
 void *rbtree_find(rbtree_t *tree, void *z);
 void *rbtree_first(rbtree_t *tree);
 
-void rbtree_delete(rbtree_t *tree, void *z);
-void rbtree_insert(rbtree_t *tree, void *x);
+void *rbtree_delete(rbtree_t *tree, void *z);
+void  rbtree_insert(rbtree_t *tree, void *x);
 
 rbtree_iter_t rbtree_iter(rbtree_t *tree);
 void *rbtree_iter_next(rbtree_iter_t *iter);

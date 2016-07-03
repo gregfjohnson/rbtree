@@ -15,19 +15,21 @@
  *
  * Each node is given a color (red or black), and the tree satisfies
  * the following two properties:
- * black property:  sibling nodes have the same black-height.
- * red property:    no red node has a red parent.
+ *
+ *     black property:  sibling nodes have the same black-height.
+ *     red property:    no red node has a red parent.
  *
  * Usage:
  *     rbtree_t tree;
  *     rbtree_init(&tree, my_data_comparison_function);
  *
- *     rtbree_insert(&tree, &my_data);
- *     rbtree_delete(&tree, &my_data);
+ *     rbtree_insert(&tree, &my_data);
  *
  *     my_data_t search, *found;
- *     search.key = key
+ *     search.key = key;
  *     found = rbtree_find(&tree, &search);
+ *
+ *     found = rbtree_delete(&tree, &search);
  *
  *     found = rbtree_first(&tree) 
  *
@@ -353,13 +355,16 @@ static void restoreBlackProperty(rbtree_t *tree, rbtree_node_t *fixme) {
     }
 }
 
-void rbtree_delete(rbtree_t *tree, void *vnode) {
+void *rbtree_delete(rbtree_t *tree, void *vnode) {
     rbtree_node_t *delete_me, *childOrNull, search;
+    void *user_data;
 
     search.data = vnode;
     delete_me = rec_rbtree_find(tree, tree->root, &search);
 
-    if (delete_me == NULL) { return; }
+    if (delete_me == NULL) { return(NULL); }
+
+    user_data = delete_me->data;
 
     /* ensure delete_me has at least one NULL child node.
      * if delete_me has two non-null child nodes, exchange
@@ -385,6 +390,8 @@ void rbtree_delete(rbtree_t *tree, void *vnode) {
                     is_left_child(delete_me));
 
     tree->free(delete_me);
+
+    return user_data;
 }
 
 /* initialize a new red-black tree with comparison method cmp. */
