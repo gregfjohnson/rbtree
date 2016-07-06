@@ -60,9 +60,20 @@ routines.
 Moreover, this obviates the need to have large chunks of
 redundant code that handle "to the left" and "to the right" separately.
 
+Helper functions that map tree nodes to other tree nodes are
+all strict; they won't choke on a NULL, and if given NULL they
+will return NULL.  Examples are parent(node), grandparent(node),
+outside_child(node), etc.
+
+helper functions such as "is_red_node(node)" that map tree_nodes
+to "bool" are not strict; they return false if given NULL as input.
+
+(If you're not even a node, how can you be a red node?)
+
 We introduce no notion of artificial NIL leaf nodes.  We make no
 assumption in the definitions or the code that all non-leaf nodes have
-two children.
+two children.  (Although, all nodes that have grandchildren do have
+two child nodes.)
 
 We make no requirement that the root node be red.
 

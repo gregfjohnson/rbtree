@@ -7,6 +7,7 @@
  * GNU General Public License for more details.
  */
 #include <stdlib.h>
+#include <stdbool.h>
 #include "rbtree.h"
 
 /* Implementation of red-black trees; ordered binary trees
@@ -40,28 +41,28 @@
  *     }
  */
 
+/* helper functions that map rbtree_nodes to rb_tree_nodes are
+ * all strict; they won't choke on a NULL, and if given NULL they
+ * will return NULL.
+ *
+ * helper functions that map rbtree_nodes to "bool" are not strict;
+ * they return false if given NULL as input.
+ * (if you're not even a node, how can you be a red node?)
+ *
+ * gender neutrality:  my parent's sibling is my ankle.
+ *                     my sibling's child is my nieph.
+ */
+
 static rbtree_node_t *parent(rbtree_node_t *node) {
     return (node != NULL ? node->parent : NULL);
-}
-
-static int is_left_child(rbtree_node_t *node) {
-    return parent(node) != NULL ? parent(node)->lchild == node : 0;
 }
 
 static rbtree_node_t *grandparent(rbtree_node_t *node) {
     return (parent(node) != NULL ? parent(node)->parent : NULL);
 }
 
-static int is_red_node(rbtree_node_t *node) {
-    return (node != NULL ? node->color == 'r' : 0);
-}
-
-static int is_root_node(rbtree_node_t *node) {
-    return (node != NULL && parent(node) == NULL);
-}
-
-static int is_inside_child(rbtree_node_t *node) {
-    return (is_left_child(node) != is_left_child(parent(node)));
+static bool is_left_child(rbtree_node_t *node) {
+    return parent(node) != NULL ? parent(node)->lchild == node : false;
 }
 
 static rbtree_node_t *inside_child(rbtree_node_t *node) {
@@ -78,16 +79,28 @@ static rbtree_node_t *sibling(rbtree_node_t *node) {
            : NULL;
 }
 
-static rbtree_node_t *uncle(rbtree_node_t *node) {
+static rbtree_node_t *ankle(rbtree_node_t *node) {
     return sibling(parent(node));
 }
 
-static rbtree_node_t *near_nephew(rbtree_node_t *node) {
+static rbtree_node_t *near_nieph(rbtree_node_t *node) {
     return inside_child(sibling(node));
 }
 
-static rbtree_node_t *far_nephew(rbtree_node_t *node) {
+static rbtree_node_t *far_nieph(rbtree_node_t *node) {
     return outside_child(sibling(node));
+}
+
+static bool is_red_node(rbtree_node_t *node) {
+    return (node != NULL ? node->color == 'r' : false);
+}
+
+static bool is_root_node(rbtree_node_t *node) {
+    return (node != NULL && parent(node) == NULL);
+}
+
+static bool is_inside_child(rbtree_node_t *node) {
+    return (is_left_child(node) != is_left_child(parent(node)));
 }
 
 static rbtree_node_t *successor(rbtree_node_t *node) {
@@ -128,12 +141,8 @@ static rbtree_node_t *new_node(rbtree_t *tree, void *vnode) {
     return x;
 }
 
-static int violatesRedProperty(rbtree_node_t *node) {
-    return (is_red_node(node) && is_red_node(parent(node)));
-}
-
 static rbtree_node_t *set_child(rbtree_t *tree, rbtree_node_t *node,
-                                rbtree_node_t *child, char left_child) {
+                                rbtree_node_t *child, bool left_child) {
     if (node == NULL)
         tree->root = child;
 
@@ -151,16 +160,16 @@ static rbtree_node_t *set_child(rbtree_t *tree, rbtree_node_t *node,
 
 static rbtree_node_t *set_lchild(rbtree_t *tree, rbtree_node_t *node,
                                            rbtree_node_t *child) {
-    return set_child(tree, node, child, 1);
+    return set_child(tree, node, child, true);
 }
 
 static rbtree_node_t *set_rchild(rbtree_t *tree, rbtree_node_t *node,
                                            rbtree_node_t *child) {
-    return set_child(tree, node, child, 0);
+    return set_child(tree, node, child, false);
 }
 
 static void rotateUpNode(rbtree_t *tree, rbtree_node_t *node) {
-    int left_child = is_left_child(node);
+    bool left_child = is_left_child(node);
     rbtree_node_t *p  = parent(node);
     rbtree_node_t *gp = grandparent(node);
 
@@ -171,7 +180,7 @@ static void rotateUpNode(rbtree_t *tree, rbtree_node_t *node) {
 
 /*       old_top:c1                node:c1
  *          |                        |         
- *     +----+----+     ===>     +----+----+    
+ *     +----+----+     <===>    +----+----+    
  *     |         |              |         |    
  *  node:c2     t_3            t_1     old_top:c2
  *     |                                  |    
@@ -179,9 +188,17 @@ static void rotateUpNode(rbtree_t *tree, rbtree_node_t *node) {
  *  |     |                            |     | 
  * t_1   t_2                          t_2   t_3
  *
+ * left-to-right, the input is "node".
+ * right-to-left, the input is "old_top".
+ *
+ * in-order traversal is not changed.
+ *
  * t_2 stays at same depth and its parent stays the same color.
  * t_1 and t_3 both change depth, and swap color of parent.
- * new tree has same depth, and same root-node color.
+ *
+ * if input node is red, no black-heights change.
+ *
+ * color of root node stays the same.
  */
 static void rotateUp(rbtree_t *tree, rbtree_node_t *node) {
     rbtree_node_t *p = parent(node);
@@ -241,6 +258,7 @@ static rbtree_node_t *tree_insert(rbtree_t *tree, rbtree_node_t **node_ptr,
     if (cmp < 0) {
         if (node->lchild == NULL) {
             if ((newNode = new_node(tree, new_data)) == NULL) return NULL;
+
             return set_lchild(tree, node, newNode);
 
         } else {
@@ -249,6 +267,7 @@ static rbtree_node_t *tree_insert(rbtree_t *tree, rbtree_node_t **node_ptr,
     } else {
         if (node->rchild == NULL) {
             if ((newNode = new_node(tree, new_data)) == NULL) return NULL;
+
             return set_rchild(tree, node, newNode);
 
         } else {
@@ -257,33 +276,40 @@ static rbtree_node_t *tree_insert(rbtree_t *tree, rbtree_node_t **node_ptr,
     }
 }
 
+static bool violatesRedProperty(rbtree_node_t *node) {
+    return (is_red_node(node) && is_red_node(parent(node)));
+}
+
 /* node is red and its parent is also red. */
 static void restoreRedProperty(rbtree_t *tree, rbtree_node_t *fixme) {
     if (is_root_node(parent(fixme))) {
         parent(fixme)->color = 'b';
 
-    /* if both parent and uncle are red, they can both be made black
+    /* if both parent and ankle are red, they can both be made black
      * and grandparent can be made red.  this will fix the red-property
      * violation between "fixme" and its parent, but it may
      * require a recursive fix-up of the grandparent.
      */
 
-    } else if (is_red_node(uncle(fixme))) {
+    } else if (is_red_node(ankle(fixme))) {
         parent(fixme)->color      = 'b';
-        uncle(fixme)->color       = 'b';
+        ankle(fixme)->color       = 'b';
         grandparent(fixme)->color = 'r';
 
         if (violatesRedProperty(grandparent(fixme)))
             restoreRedProperty(tree, grandparent(fixme));
 
     } else {
-        /* see picture on rotateUp(p):
-         * outside child (t_1) changes parent color,
-         * and sibling(t_3) changes parent color.
+        /* (refer to picture on rotateUp(node) above)
+         *
+         * letting P = parent(fixme), rotateUp(P) below will:
+         *
+         * change parent color of P's outside child
+         * change parent color of P's sibling.
          *
          * so, if we can make sure that fixme is an outside child,
-         * then rotateUp(parent) will fix its red violation.
-         * and, since uncle node is black, changing
+         * then rotateUp(P) will fix its red violation.
+         * and, since ankle node (P's sibling) is black, changing
          * the color of that node's parent is safe.
          */
 
@@ -296,20 +322,22 @@ static void restoreRedProperty(rbtree_t *tree, rbtree_node_t *fixme) {
     }
 }
 
-void rbtree_insert(rbtree_t *tree, void *vnode) {
+void *rbtree_insert(rbtree_t *tree, void *vnode) {
     rbtree_node_t *x = tree_insert(tree, &tree->root, vnode);
 
-    if (x == NULL) return;  /* can happen if malloc fails.. */
+    if (x == NULL) return NULL;  /* can happen if malloc fails.. */
 
     if (violatesRedProperty(x))
         restoreRedProperty(tree, x);
+
+    return vnode;
 }
 
 /* black-depth of fixme is one less than black-depth of sibling.
  * node is not red.
  */
 static void restoreBlackProperty(rbtree_t *tree, rbtree_node_t *fixme) {
-    /* we need sibling to be black.. */
+    /* if fixme has a sibling, we need it to be black.. */
     if (is_red_node(sibling(fixme))) {
         rotateUp(tree, sibling(fixme));
     }
@@ -324,7 +352,7 @@ static void restoreBlackProperty(rbtree_t *tree, rbtree_node_t *fixme) {
      * if not, we recursively fix parent.
      */
 
-    if (!is_red_node(near_nephew(fixme)) && !is_red_node(far_nephew(fixme))) {
+    if (!is_red_node(near_nieph(fixme)) && !is_red_node(far_nieph(fixme))) {
         sibling(fixme)->color = 'r';
 
         if (is_red_node(parent(fixme))) {
@@ -336,19 +364,19 @@ static void restoreBlackProperty(rbtree_t *tree, rbtree_node_t *fixme) {
 
     } else {
         /* rotateUp() below will increase black-depth of fixme (good)
-         * but decrease black-depth of far nephew (bad).
-         * however, we can guarantee the far nephew is red, and
+         * but decrease black-depth of far nieph (bad).
+         * however, we can guarantee the far nieph is red, and
          * that will let us fix its black depth by coloring it black.
          */
 
-        if (!is_red_node(far_nephew(fixme))) {
-            rotateUp(tree, near_nephew(fixme));
+        if (!is_red_node(far_nieph(fixme))) {
+            rotateUp(tree, near_nieph(fixme));
         }
 
         rotateUp(tree, sibling(fixme));
 
-        /* node that was our far nephew is now our uncle.. */
-        uncle(fixme)->color = 'b';
+        /* node that was our far nieph is now our ankle.. */
+        ankle(fixme)->color = 'b';
     }
 }
 
@@ -359,7 +387,7 @@ void *rbtree_delete(rbtree_t *tree, void *vnode) {
     search.data = vnode;
     delete_me = rec_rbtree_find(tree, tree->root, &search);
 
-    if (delete_me == NULL) { return(NULL); }
+    if (delete_me == NULL) { return NULL; }
 
     user_data = delete_me->data;
 
@@ -416,33 +444,6 @@ static rbtree_node_t *first_node(rbtree_t *tree) {
     return node;
 }
 
-/* return the successor in the tree of node.  if no successor, return NULL. */
-static rbtree_node_t *next_node(rbtree_node_t *node) {
-    if (node == NULL) { return NULL; }
-
-    /* if we have a right child, find its leftmost descendent. */
-    if (node->rchild != NULL) {
-        node = node->rchild;
-
-        while (node->lchild != NULL) { node = node->lchild; }
-
-    /* else, traverse toward root looking for a node that's parent of a left
-     * child on the traversal path.
-     */
-    } else {
-        while (1) {
-            if (node->parent == NULL) { return NULL; }
-            if (node->parent->lchild == node) {
-                node = node->parent;
-                break;
-            }
-            node = node->parent;
-        }
-    }
-
-    return node;
-}
-
 /* initialize and return an iterator for the user-data elements in the tree */
 rbtree_iter_t rbtree_iter(rbtree_t *tree) {
     rbtree_iter_t iter;
@@ -463,11 +464,12 @@ void *rbtree_iter_next(rbtree_iter_t *iter) {
     result = iter->next_node->data;
 
     /* find the node that will be returned the next time we are called */
-    iter->next_node = next_node(iter->next_node);
+    iter->next_node = successor(iter->next_node);
 
     return result;
 }
 
+/* return smallest user data value in the tree, or NULL if tree is empty. */
 void *rbtree_first(rbtree_t *tree) {
     rbtree_node_t *node = first_node(tree);
     if (node == NULL) { return NULL; }
