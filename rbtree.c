@@ -53,30 +53,58 @@
  *                     my sibling's child is my nieph.
  */
 
+void rbtree_init(rbtree_t *tree, rbtree_cmp_t *cmp) {
+    tree->root   = NULL;
+    tree->cmp    = cmp;
+    tree->malloc = malloc;
+    tree->free   = free;
+}
+
+void rbtree_set_malloc_free(rbtree_t *tree, rbtree_malloc_t *malloc, rbtree_free_t *free) {
+    tree->malloc = malloc;
+    tree->free   = free;
+}
+
 static rbtree_node_t *parent(rbtree_node_t *node) {
-    return (node != NULL ? node->parent : NULL);
+    return   node == NULL
+           ? NULL
+           : node->parent;
 }
 
 static rbtree_node_t *grandparent(rbtree_node_t *node) {
-    return (parent(node) != NULL ? parent(node)->parent : NULL);
+    return   parent(node) == NULL
+           ? NULL
+           : parent(node)->parent;
 }
 
 static bool is_left_child(rbtree_node_t *node) {
-    return parent(node) != NULL ? parent(node)->lchild == node : false;
-}
-
-static rbtree_node_t *inside_child(rbtree_node_t *node) {
-    return (node == NULL ? NULL : is_left_child(node) ? node->rchild : node->lchild);
-}
-
-static rbtree_node_t *outside_child(rbtree_node_t *node) {
-    return (node == NULL ? NULL : is_left_child(node) ? node->lchild : node->rchild);
+    return   parent(node) == NULL
+           ? false
+           : parent(node)->lchild == node;
 }
 
 static rbtree_node_t *sibling(rbtree_node_t *node) {
-    return   parent(node) != NULL
-           ? (is_left_child(node) ? parent(node)->rchild : parent(node)->lchild)
-           : NULL;
+    return   parent(node) == NULL
+           ? NULL
+           :   is_left_child(node)
+             ? parent(node)->rchild
+             : parent(node)->lchild;
+}
+
+static rbtree_node_t *inside_child(rbtree_node_t *node) {
+    return   node == NULL
+           ? NULL
+           :   is_left_child(node)
+             ? node->rchild
+             : node->lchild;
+}
+
+static rbtree_node_t *outside_child(rbtree_node_t *node) {
+    return   node == NULL
+           ? NULL
+           :   is_left_child(node)
+             ? node->lchild
+             : node->rchild;
 }
 
 static rbtree_node_t *ankle(rbtree_node_t *node) {
@@ -92,15 +120,17 @@ static rbtree_node_t *far_nieph(rbtree_node_t *node) {
 }
 
 static bool is_red_node(rbtree_node_t *node) {
-    return (node != NULL ? node->color == 'r' : false);
+    return   node == NULL
+           ? false
+           : node->color == 'r';
 }
 
 static bool is_root_node(rbtree_node_t *node) {
-    return (node != NULL && parent(node) == NULL);
+    return node != NULL && parent(node) == NULL;
 }
 
 static bool is_inside_child(rbtree_node_t *node) {
-    return (is_left_child(node) != is_left_child(parent(node)));
+    return is_left_child(node) ^ is_left_child(parent(node));
 }
 
 static rbtree_node_t *successor(rbtree_node_t *node) {
@@ -127,8 +157,8 @@ static rbtree_node_t *successor(rbtree_node_t *node) {
 static void init_node(rbtree_node_t *node, void *vnode) {
     node->parent = NULL;
     node->lchild = node->rchild = NULL;
-    node->color = 'r';
-    node->data = vnode;
+    node->color  = 'r';
+    node->data   = vnode;
 }
 
 static rbtree_node_t *new_node(rbtree_t *tree, void *vnode) {
@@ -188,8 +218,10 @@ static void rotateUpNode(rbtree_t *tree, rbtree_node_t *node) {
  *  |     |                            |     | 
  * t_1   t_2                          t_2   t_3
  *
- * left-to-right, the input is "node".
- * right-to-left, the input is "old_top".
+ * input node rotates up and becomes new parent.
+ *
+ * on left tree, input would be "node".
+ * on right tree, input would be "old_top".
  *
  * in-order traversal is not changed.
  *
@@ -226,11 +258,6 @@ static rbtree_node_t *rec_rbtree_find(rbtree_t *tree, rbtree_node_t *root,
         return rec_rbtree_find(tree, root->rchild, search);
 }
 
-/* do a binary search looking for a node whose data compares equal to
- * vsearch.  if found, return a pointer to the user-provided data in
- * the matching node.  if not found, return NULL.
- * if multiple nodes test equal, return an arbitrary one.
- */
 void *rbtree_find(rbtree_t *tree, void *vsearch) {
     rbtree_node_t search, *found;
     search.data = vsearch;
@@ -304,8 +331,8 @@ static void restoreRedProperty(rbtree_t *tree, rbtree_node_t *fixme) {
          *
          * letting P = parent(fixme), rotateUp(P) below will:
          *
-         * change parent color of P's outside child
-         * change parent color of P's sibling.
+         *    - change parent color of P's outside child
+         *    - change parent color of P's sibling.
          *
          * so, if we can make sure that fixme is an outside child,
          * then rotateUp(P) will fix its red violation.
@@ -403,6 +430,8 @@ void *rbtree_delete(rbtree_t *tree, void *vnode) {
     }
 
     if (!is_root_node(delete_me) && !is_red_node(delete_me)) {
+        // in case anybody is looking, create required violation
+        // of the black property..
         delete_me->color = 'w';
         restoreBlackProperty(tree, delete_me);
     }
@@ -417,20 +446,6 @@ void *rbtree_delete(rbtree_t *tree, void *vnode) {
     tree->free(delete_me);
 
     return user_data;
-}
-
-/* initialize a new red-black tree with comparison method cmp. */
-void rbtree_init(rbtree_t *tree, int (*cmp)(void *, void *)) {
-    tree->root   = NULL;
-    tree->cmp    = cmp;
-    tree->malloc = malloc;
-    tree->free   = free;
-}
-
-/* set optional custom malloc and free functions for internals of rbtree implementation */ 
-void rbtree_set_malloc_free(rbtree_t *tree, rbtree_malloc_t *malloc, rbtree_free_t *free) {
-    tree->malloc = malloc;
-    tree->free   = free;
 }
 
 /* find the first (smallest) node in the tree.  return NULL if tree is empty. */

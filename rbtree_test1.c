@@ -6,9 +6,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include "rbtree.h"
 
 typedef unsigned char byte;
@@ -19,8 +17,9 @@ static int test_result_value = 0;
 static void test_result(int test, char *title) {
     printf("%s %s\n", title, test ? "passed" : "failed");
 
-    if (!test)
-        { test_result_value = -1; }
+    if (!test) {
+        test_result_value = -1;
+    }
 }
 
 static int byte_cmp(byte *i1, byte *i2) {
@@ -28,12 +27,13 @@ static int byte_cmp(byte *i1, byte *i2) {
 }
 
 static int countNodes(rbtree_node_t *subtree) {
-    if (subtree == 0) return 0;
+    if (subtree == NULL) return 0;
+
     return 1 + countNodes(subtree->lchild) + countNodes(subtree->rchild);
 }
 
 static void printTree(rbtree_node_t *subtree) {
-    if (subtree == 0) return;
+    if (subtree == NULL) return;
 
     printTree(subtree->lchild);
 
