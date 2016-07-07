@@ -58,25 +58,27 @@
 /* internal low-level utility functions.. */
 static rbtree_node_t *parent(rbtree_node_t *node);
 static rbtree_node_t *grandparent(rbtree_node_t *node);
-static bool is_left_child(rbtree_node_t *node);
 static rbtree_node_t *sibling(rbtree_node_t *node);
 static rbtree_node_t *inside_child(rbtree_node_t *node);
 static rbtree_node_t *outside_child(rbtree_node_t *node);
 static rbtree_node_t *ankle(rbtree_node_t *node);
 static rbtree_node_t *near_nieph(rbtree_node_t *node);
 static rbtree_node_t *far_nieph(rbtree_node_t *node);
-static bool is_red_node(rbtree_node_t *node);
-static bool is_root_node(rbtree_node_t *node);
-static bool is_inside_child(rbtree_node_t *node);
 static rbtree_node_t *successor(rbtree_node_t *node);
-static void init_node(rbtree_node_t *node, void *vnode);
-static rbtree_node_t *new_node(rbtree_t *tree, void *vnode);
 static rbtree_node_t *set_child(rbtree_t *tree, rbtree_node_t *node,
                                 rbtree_node_t *child, bool left_child);
 static rbtree_node_t *set_lchild(rbtree_t *tree, rbtree_node_t *node,
                                            rbtree_node_t *child);
 static rbtree_node_t *set_rchild(rbtree_t *tree, rbtree_node_t *node,
                                            rbtree_node_t *child);
+static rbtree_node_t *new_node(rbtree_t *tree, void *vnode);
+
+static bool is_left_child(rbtree_node_t *node);
+static bool is_red_node(rbtree_node_t *node);
+static bool is_root_node(rbtree_node_t *node);
+static bool is_inside_child(rbtree_node_t *node);
+
+static void init_node(rbtree_node_t *node, void *vnode);
 
 void rbtree_init(rbtree_t *tree, rbtree_cmp_t *cmp) {
     tree->root   = NULL;
@@ -161,10 +163,9 @@ void *rbtree_find(rbtree_t *tree, void *vsearch) {
        return found->data;
 }
 
-static rbtree_node_t *tree_insert(rbtree_t *tree, rbtree_node_t **node_ptr,
+static rbtree_node_t *tree_insert(rbtree_t *tree, rbtree_node_t *node,
         void *new_data) {
     int cmp;
-    rbtree_node_t *node = *node_ptr;
     rbtree_node_t *newNode;
 
     if (node == NULL) {
@@ -181,7 +182,7 @@ static rbtree_node_t *tree_insert(rbtree_t *tree, rbtree_node_t **node_ptr,
             return set_lchild(tree, node, newNode);
 
         } else {
-            return tree_insert(tree, &node->lchild, new_data);
+            return tree_insert(tree, node->lchild, new_data);
         }
     } else {
         if (node->rchild == NULL) {
@@ -190,7 +191,7 @@ static rbtree_node_t *tree_insert(rbtree_t *tree, rbtree_node_t **node_ptr,
             return set_rchild(tree, node, newNode);
 
         } else {
-            return tree_insert(tree, &node->rchild, new_data);
+            return tree_insert(tree, node->rchild, new_data);
         }
     }
 }
@@ -199,7 +200,8 @@ static bool violatesRedProperty(rbtree_node_t *node) {
     return (is_red_node(node) && is_red_node(parent(node)));
 }
 
-/* node is red and its parent is also red. */
+/* node is red and its parent is also red.
+ */
 static void restoreRedProperty(rbtree_t *tree, rbtree_node_t *fixme) {
     if (is_root_node(parent(fixme))) {
         parent(fixme)->color = 'b';
@@ -242,7 +244,7 @@ static void restoreRedProperty(rbtree_t *tree, rbtree_node_t *fixme) {
 }
 
 void *rbtree_insert(rbtree_t *tree, void *vnode) {
-    rbtree_node_t *x = tree_insert(tree, &tree->root, vnode);
+    rbtree_node_t *x = tree_insert(tree, tree->root, vnode);
 
     if (x == NULL) return NULL;  /* can happen if malloc fails.. */
 
@@ -392,18 +394,16 @@ static rbtree_node_t *grandparent(rbtree_node_t *node) {
     return parent(parent(node));
 }
 
-static bool is_left_child(rbtree_node_t *node) {
-    return   parent(node) == NULL
-           ? false
-           : parent(node)->lchild == node;
-}
-
 static rbtree_node_t *sibling(rbtree_node_t *node) {
     return   parent(node) == NULL
            ? NULL
            :   is_left_child(node)
              ? parent(node)->rchild
              : parent(node)->lchild;
+}
+
+static bool is_inside_child(rbtree_node_t *node) {
+    return is_left_child(node) ^ is_left_child(parent(node));
 }
 
 static rbtree_node_t *inside_child(rbtree_node_t *node) {
@@ -440,12 +440,14 @@ static bool is_red_node(rbtree_node_t *node) {
            : node->color == 'r';
 }
 
-static bool is_root_node(rbtree_node_t *node) {
-    return node != NULL && parent(node) == NULL;
+static bool is_left_child(rbtree_node_t *node) {
+    return   parent(node) == NULL
+           ? false
+           : parent(node)->lchild == node;
 }
 
-static bool is_inside_child(rbtree_node_t *node) {
-    return is_left_child(node) ^ is_left_child(parent(node));
+static bool is_root_node(rbtree_node_t *node) {
+    return node != NULL && parent(node) == NULL;
 }
 
 static rbtree_node_t *successor(rbtree_node_t *node) {
