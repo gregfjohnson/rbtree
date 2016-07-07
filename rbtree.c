@@ -25,7 +25,9 @@
  *     rbtree_init(&tree, my_data_comparison_function);
  *
  *     my_data_t my_data = {...};
- *     rbtree_insert(&tree, &my_data);
+ *     if (rbtree_insert(&tree, &my_data) == NULL) {
+ *         // handle error..
+ *     }
  *
  *     my_data_t search, *found;
  *     search.key = key;
@@ -53,6 +55,29 @@
  *                     my sibling's child is my nieph.
  */
 
+/* internal low-level utility functions.. */
+static rbtree_node_t *parent(rbtree_node_t *node);
+static rbtree_node_t *grandparent(rbtree_node_t *node);
+static bool is_left_child(rbtree_node_t *node);
+static rbtree_node_t *sibling(rbtree_node_t *node);
+static rbtree_node_t *inside_child(rbtree_node_t *node);
+static rbtree_node_t *outside_child(rbtree_node_t *node);
+static rbtree_node_t *ankle(rbtree_node_t *node);
+static rbtree_node_t *near_nieph(rbtree_node_t *node);
+static rbtree_node_t *far_nieph(rbtree_node_t *node);
+static bool is_red_node(rbtree_node_t *node);
+static bool is_root_node(rbtree_node_t *node);
+static bool is_inside_child(rbtree_node_t *node);
+static rbtree_node_t *successor(rbtree_node_t *node);
+static void init_node(rbtree_node_t *node, void *vnode);
+static rbtree_node_t *new_node(rbtree_t *tree, void *vnode);
+static rbtree_node_t *set_child(rbtree_t *tree, rbtree_node_t *node,
+                                rbtree_node_t *child, bool left_child);
+static rbtree_node_t *set_lchild(rbtree_t *tree, rbtree_node_t *node,
+                                           rbtree_node_t *child);
+static rbtree_node_t *set_rchild(rbtree_t *tree, rbtree_node_t *node,
+                                           rbtree_node_t *child);
+
 void rbtree_init(rbtree_t *tree, rbtree_cmp_t *cmp) {
     tree->root   = NULL;
     tree->cmp    = cmp;
@@ -63,139 +88,6 @@ void rbtree_init(rbtree_t *tree, rbtree_cmp_t *cmp) {
 void rbtree_set_malloc_free(rbtree_t *tree, rbtree_malloc_t *malloc, rbtree_free_t *free) {
     tree->malloc = malloc;
     tree->free   = free;
-}
-
-static rbtree_node_t *parent(rbtree_node_t *node) {
-    return   node == NULL
-           ? NULL
-           : node->parent;
-}
-
-static rbtree_node_t *grandparent(rbtree_node_t *node) {
-    return   parent(node) == NULL
-           ? NULL
-           : parent(node)->parent;
-}
-
-static bool is_left_child(rbtree_node_t *node) {
-    return   parent(node) == NULL
-           ? false
-           : parent(node)->lchild == node;
-}
-
-static rbtree_node_t *sibling(rbtree_node_t *node) {
-    return   parent(node) == NULL
-           ? NULL
-           :   is_left_child(node)
-             ? parent(node)->rchild
-             : parent(node)->lchild;
-}
-
-static rbtree_node_t *inside_child(rbtree_node_t *node) {
-    return   node == NULL
-           ? NULL
-           :   is_left_child(node)
-             ? node->rchild
-             : node->lchild;
-}
-
-static rbtree_node_t *outside_child(rbtree_node_t *node) {
-    return   node == NULL
-           ? NULL
-           :   is_left_child(node)
-             ? node->lchild
-             : node->rchild;
-}
-
-static rbtree_node_t *ankle(rbtree_node_t *node) {
-    return sibling(parent(node));
-}
-
-static rbtree_node_t *near_nieph(rbtree_node_t *node) {
-    return inside_child(sibling(node));
-}
-
-static rbtree_node_t *far_nieph(rbtree_node_t *node) {
-    return outside_child(sibling(node));
-}
-
-static bool is_red_node(rbtree_node_t *node) {
-    return   node == NULL
-           ? false
-           : node->color == 'r';
-}
-
-static bool is_root_node(rbtree_node_t *node) {
-    return node != NULL && parent(node) == NULL;
-}
-
-static bool is_inside_child(rbtree_node_t *node) {
-    return is_left_child(node) ^ is_left_child(parent(node));
-}
-
-static rbtree_node_t *successor(rbtree_node_t *node) {
-    rbtree_node_t *result;
-
-    if (node == NULL) return NULL;
-
-    if (node->rchild != NULL) {
-        result = node->rchild;
-
-        while (result->lchild != NULL)
-            result = result->lchild;
-
-    } else {
-        result = node;
-        while (result != NULL && !is_left_child(result))
-            result = parent(result);
-
-        result = parent(result);
-    }
-    return result;
-}
-
-static void init_node(rbtree_node_t *node, void *vnode) {
-    node->parent = NULL;
-    node->lchild = node->rchild = NULL;
-    node->color  = 'r';
-    node->data   = vnode;
-}
-
-static rbtree_node_t *new_node(rbtree_t *tree, void *vnode) {
-    rbtree_node_t *x = (rbtree_node_t *) tree->malloc(sizeof(rbtree_node_t));
-
-    if (x != NULL) {
-        init_node(x, vnode);
-    }
-
-    return x;
-}
-
-static rbtree_node_t *set_child(rbtree_t *tree, rbtree_node_t *node,
-                                rbtree_node_t *child, bool left_child) {
-    if (node == NULL)
-        tree->root = child;
-
-    else if (left_child)
-        node->lchild = child;
-
-    else
-        node->rchild = child;
-
-    if (child != NULL)
-        child->parent = node;
-
-    return child;
-}
-
-static rbtree_node_t *set_lchild(rbtree_t *tree, rbtree_node_t *node,
-                                           rbtree_node_t *child) {
-    return set_child(tree, node, child, true);
-}
-
-static rbtree_node_t *set_rchild(rbtree_t *tree, rbtree_node_t *node,
-                                           rbtree_node_t *child) {
-    return set_child(tree, node, child, false);
 }
 
 static void rotateUpNode(rbtree_t *tree, rbtree_node_t *node) {
@@ -220,7 +112,7 @@ static void rotateUpNode(rbtree_t *tree, rbtree_node_t *node) {
  *
  * input node rotates up and becomes new parent.
  *
- * on left tree, input would be "node".
+ * on left tree,  input would be "node".
  * on right tree, input would be "old_top".
  *
  * in-order traversal is not changed.
@@ -234,28 +126,28 @@ static void rotateUpNode(rbtree_t *tree, rbtree_node_t *node) {
  */
 static void rotateUp(rbtree_t *tree, rbtree_node_t *node) {
     rbtree_node_t *p = parent(node);
-    char pc       = p->color;
-    p->color      = node->color;
-    node->color   = pc;
+    char pc          = p->color;
+    p->color         = node->color;
+    node->color      = pc;
 
     rotateUpNode(tree, node);
 }
 
-static rbtree_node_t *rec_rbtree_find(rbtree_t *tree, rbtree_node_t *root,
+static rbtree_node_t *rec_rbtree_find(rbtree_t *tree, rbtree_node_t *node,
         rbtree_node_t *search) {
     int rel;
 
-    if (root == NULL)
+    if (node == NULL)
         return NULL;
 
-    else if ((rel = tree->cmp(search->data, root->data)) == 0)
-        return root;
+    else if ((rel = tree->cmp(search->data, node->data)) == 0)
+        return node;
 
     else if (rel < 0)
-        return rec_rbtree_find(tree, root->lchild, search);
+        return rec_rbtree_find(tree, node->lchild, search);
 
     else
-        return rec_rbtree_find(tree, root->rchild, search);
+        return rec_rbtree_find(tree, node->rchild, search);
 }
 
 void *rbtree_find(rbtree_t *tree, void *vsearch) {
@@ -430,8 +322,9 @@ void *rbtree_delete(rbtree_t *tree, void *vnode) {
     }
 
     if (!is_root_node(delete_me) && !is_red_node(delete_me)) {
-        // in case anybody is looking, create required violation
-        // of the black property..
+        /* in case anybody is looking, create required violation
+         * of the black property
+         */
         delete_me->color = 'w';
         restoreBlackProperty(tree, delete_me);
     }
@@ -448,7 +341,6 @@ void *rbtree_delete(rbtree_t *tree, void *vnode) {
     return user_data;
 }
 
-/* find the first (smallest) node in the tree.  return NULL if tree is empty. */
 static rbtree_node_t *first_node(rbtree_t *tree) {
     rbtree_node_t *node;
     if (tree->root == NULL) { return NULL; }
@@ -459,7 +351,6 @@ static rbtree_node_t *first_node(rbtree_t *tree) {
     return node;
 }
 
-/* initialize and return an iterator for the user-data elements in the tree */
 rbtree_iter_t rbtree_iter(rbtree_t *tree) {
     rbtree_iter_t iter;
 
@@ -469,7 +360,6 @@ rbtree_iter_t rbtree_iter(rbtree_t *tree) {
     return iter;
 }
 
-/* return the next node in the tree using state stored in iterator "iter" */
 void *rbtree_iter_next(rbtree_iter_t *iter) {
     void *result;
 
@@ -484,10 +374,141 @@ void *rbtree_iter_next(rbtree_iter_t *iter) {
     return result;
 }
 
-/* return smallest user data value in the tree, or NULL if tree is empty. */
 void *rbtree_first(rbtree_t *tree) {
     rbtree_node_t *node = first_node(tree);
     if (node == NULL) { return NULL; }
 
     return node->data;
+}
+
+/* utility function definitions */
+static rbtree_node_t *parent(rbtree_node_t *node) {
+    return   node == NULL
+           ? NULL
+           : node->parent;
+}
+
+static rbtree_node_t *grandparent(rbtree_node_t *node) {
+    return parent(parent(node));
+}
+
+static bool is_left_child(rbtree_node_t *node) {
+    return   parent(node) == NULL
+           ? false
+           : parent(node)->lchild == node;
+}
+
+static rbtree_node_t *sibling(rbtree_node_t *node) {
+    return   parent(node) == NULL
+           ? NULL
+           :   is_left_child(node)
+             ? parent(node)->rchild
+             : parent(node)->lchild;
+}
+
+static rbtree_node_t *inside_child(rbtree_node_t *node) {
+    return   node == NULL
+           ? NULL
+           :   is_left_child(node)
+             ? node->rchild
+             : node->lchild;
+}
+
+static rbtree_node_t *outside_child(rbtree_node_t *node) {
+    return   node == NULL
+           ? NULL
+           :   is_left_child(node)
+             ? node->lchild
+             : node->rchild;
+}
+
+static rbtree_node_t *ankle(rbtree_node_t *node) {
+    return sibling(parent(node));
+}
+
+static rbtree_node_t *near_nieph(rbtree_node_t *node) {
+    return inside_child(sibling(node));
+}
+
+static rbtree_node_t *far_nieph(rbtree_node_t *node) {
+    return outside_child(sibling(node));
+}
+
+static bool is_red_node(rbtree_node_t *node) {
+    return   node == NULL
+           ? false
+           : node->color == 'r';
+}
+
+static bool is_root_node(rbtree_node_t *node) {
+    return node != NULL && parent(node) == NULL;
+}
+
+static bool is_inside_child(rbtree_node_t *node) {
+    return is_left_child(node) ^ is_left_child(parent(node));
+}
+
+static rbtree_node_t *successor(rbtree_node_t *node) {
+    rbtree_node_t *result;
+
+    if (node == NULL) return NULL;
+
+    if (node->rchild != NULL) {
+        result = node->rchild;
+
+        while (result->lchild != NULL)
+            result = result->lchild;
+
+    } else {
+        result = node;
+        while (result != NULL && !is_left_child(result))
+            result = parent(result);
+
+        result = parent(result);
+    }
+    return result;
+}
+
+static void init_node(rbtree_node_t *node, void *vnode) {
+    node->parent = NULL;
+    node->lchild = node->rchild = NULL;
+    node->color  = 'r';
+    node->data   = vnode;
+}
+
+static rbtree_node_t *new_node(rbtree_t *tree, void *vnode) {
+    rbtree_node_t *x = (rbtree_node_t *) tree->malloc(sizeof(rbtree_node_t));
+
+    if (x != NULL) {
+        init_node(x, vnode);
+    }
+
+    return x;
+}
+
+static rbtree_node_t *set_child(rbtree_t *tree, rbtree_node_t *node,
+                                rbtree_node_t *child, bool left_child) {
+    if (node == NULL)
+        tree->root = child;
+
+    else if (left_child)
+        node->lchild = child;
+
+    else
+        node->rchild = child;
+
+    if (child != NULL)
+        child->parent = node;
+
+    return child;
+}
+
+static rbtree_node_t *set_lchild(rbtree_t *tree, rbtree_node_t *node,
+                                           rbtree_node_t *child) {
+    return set_child(tree, node, child, true);
+}
+
+static rbtree_node_t *set_rchild(rbtree_t *tree, rbtree_node_t *node,
+                                           rbtree_node_t *child) {
+    return set_child(tree, node, child, false);
 }
