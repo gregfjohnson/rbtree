@@ -102,11 +102,11 @@ static void rotateUpNode(rbtree_t *tree, rbtree_node_t *node) {
     set_child(tree, node, p,                  !left_child);
 }
 
-/*       old_top:c1                node:c1
+/*       nodeB:c1                 nodeA:c1
  *          |                        |         
  *     +----+----+     <===>    +----+----+    
  *     |         |              |         |    
- *  node:c2     t_3            t_1     old_top:c2
+ *  nodeA:c2    t_3            t_1     nodeB:c2
  *     |                                  |    
  *  +--+--+                            +--+--+ 
  *  |     |                            |     | 
@@ -114,8 +114,8 @@ static void rotateUpNode(rbtree_t *tree, rbtree_node_t *node) {
  *
  * input node rotates up and becomes new parent.
  *
- * on left tree,  input would be "node".
- * on right tree, input would be "old_top".
+ * if input is "nodeA", it moves up to become parent.
+ * if input is "nodeB", it moves up to become parent.
  *
  * in-order traversal is not changed.
  *
